@@ -1,0 +1,79 @@
+
+
+
+
+SUBROUTINE ftcs(cell4)
+USE variables
+USE constants
+IMPLICIT NONE
+TYPE(cell_data), INTENT(INOUT):: cell4(3)
+DO i=0,itime
+ DO j=0,grd_pts-1
+ IF (i>0 .AND.j==0) THEN
+     CALL q2p(cell4,i)
+     CALL ic1(cell4,i,j)
+     CALL p2q1(cell4,i,j)
+    ELSE IF (i>0 .AND. j==(grd_pts-1))THEN
+      CALL ic1(cell4,i,j)
+      CALL p2q1(cell4,i,j)
+    ELSE IF(j/=0 .OR. j/=grd_pts-1)THEN
+    write(*,*) i,j
+   cell4(i+1,j)%q1=cell4(i,j)%q1-(half*dt/dx*(cell4(i,j+1)%e1-cell4(i,j-1)%e1))
+   cell4(i+1,j)%q2=cell4(i,j)%q2-(half*dt/dx*(cell4(i,j+1)%e2-cell4(i,j-1)%e2))
+   cell4(i+1,j)%q3=cell4(i,j)%q3-(half*dt/dx*(cell4(i,j+1)%e3-cell4(i,j-1)%e3))
+   CALL q2p(cell4,i)
+END IF
+ END  DO
+END DO
+  
+END SUBROUTINE
+
+SUBROUTINE q2p(cell5,k)
+USE variables
+USE constants
+IMPLICIT NONE
+TYPE(cell_data), INTENT(INOUT):: cell5(3)
+INTEGER, INTENT(IN):: k
+DO j=1,grd_pts-2
+    cell5(k,j)%p1=cell5(k,j)%q1
+    cell5(k,j)%p2=cell5(k,j)%q1/cell5(k,j)%q2
+    cell5(k,j)%p3=(gamma-1)*(cell5(k,j)%q3-(half*cell5(k,j)%q2*cell5(k,j)%q2)/cell5(k,j)%q1)
+    cell5(k,j)%p4=cell5(k,j)%p3/(gas_const*cell5(k,j)%p1)
+END DO
+END SUBROUTINE
+
+SUBROUTINE ic1(cell6,l,s)
+USE variables
+USE constants
+IMPLICIT NONE
+TYPE(cell_data), INTENT(INOUT):: cell6(3)
+INTEGER, INTENT(IN):: l,s
+IF(s==0)THEN
+  cell6(l,0)%p2=cell6(l,1)%p2
+  cell6(l,0)%p4=stag_temp-((gamma-1)*half*cell6(l,1)%p2*cell6(l,1)%p2/(gamma*gas_const))
+  cell6(l,0)%p3=stag_pr*((cell6(l,0)%p4/stag_temp)**(gamma/(gamma-one)))
+  cell6(l,0)%p1=cell6(l,0)%p3/(gas_const*cell6(l,0)%p4)
+ELSE IF (s==grd_pts-1)THEN
+  cell6(l,s)%p2=cell6(l,s-1)%p2
+  cell6(l,s)%p4=stag_temp-((gamma-1)*half*cell6(l,s-1)%p2*cell6(l,s-1)%p2/(gamma*gas_const))
+  cell6(l,s)%p3=stag_pr*((cell6(l,s)%p4/stag_temp)**(gamma/(gamma-one)))
+  cell6(l,s)%p1=cell6(l,s)%p3/(gas_const*cell6(l,s)%p4)
+END IF
+END SUBROUTINE
+
+SUBROUTINE p2q1(cell7,m,o)
+USE variables
+USE constants
+IMPLICIT NONE
+TYPE(cell_data), INTENT(INOUT):: cell7(3)
+INTEGER, INTENT(IN):: m,o
+IF(o==0)THEN
+  cell7(m,0)%q1=cell7(m,0)%p1
+  cell7(m,0)%q2=cell7(m,0)%p1*cell7(m,0)%p2
+  cell7(m,0)%q3=cell7(m,0)%p3/(gamma-one)+(half*cell7(m,0)%p1*cell7(m,0)%p2*cell7(m,0)%p2)
+ELSE IF(o==grd_pts-1)THEN
+  cell7(m,o)%q1=cell7(m,o)%p1
+  cell7(m,o)%q2=cell7(m,o)%p1*cell7(m,o)%p2
+  cell7(m,o)%q3=cell7(m,o)%p3/(gamma-one)+(half*cell7(m,o)%p1*cell7(m,o)%p2*cell7(m,o)%p2)
+END IF
+END SUBROUTINE
